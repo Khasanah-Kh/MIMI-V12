@@ -1,0 +1,6 @@
+{
+  "name": "MIMI V9 - Room Belajar & Classroom AI SD-SMA",
+  "description": "Aplikasi room belajar interaktif siswa SD, SMP, dan SMA berbasis Kurikulum Merdeka Kemendikbudristek bersama MIMI (Guru, Asisten, Profesor Trik Hafal, & Teman Curhat) lengkap dengan latihan soal bertahap dan video pembelajaran.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
