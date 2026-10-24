@@ -14,6 +14,7 @@ import {
   MessageIntent,
   sanitizeChatHistoryForQuery,
 } from './src/lib/mimiEngine.ts';
+import { normalizeIndonesianSlang } from './src/lib/slangNormalizer.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -168,17 +169,22 @@ async function startServer() {
       // Strictly remove 3-step logic from chat history for non-math queries
       const sanitizedHistory = sanitizeChatHistoryForQuery(history, isMathQuery);
 
+      const { normalized, wasModified } = normalizeIndonesianSlang(cleanMessage);
+      const userMessageContext = wasModified
+        ? `Pesan Asli User: "${cleanMessage}"\n(Pahami Maksud & Singkatan/Typo: "${normalized}")`
+        : `Pesan User: "${cleanMessage}"`;
+
       // Build contextual prompt so Gemini understands ANY query while honoring MIMI V12 rules
       const contextualUserPrompt =
         intent === 'greeting'
-          ? `[INTENT 1: User menyapa / small talk. Jawab PENDEK maksimal 1-2 kalimat (15-20 kata), ramah, nyambung langsung sama kalimat user, dan tanya balik sebagai MIMI V12 (sahabat SMP kelas 8, cewek skena merah hitam, suka main MLBB). JANGAN sebut Sumber Buku, Kurikulum Merdeka, atau 3 Langkah!]\nPesan User: ${cleanMessage}`
+          ? `[INTENT 1: User menyapa / small talk (mungkin disingkat misal 'pgi mim', 'gmn kbr'). Jawab PENDEK maksimal 1-2 kalimat (15-20 kata), ramah, nyambung langsung sama kalimat user, dan tanya balik sebagai MIMI V12 (sahabat SMP kelas 8, cewek skena merah hitam, suka main MLBB). JANGAN sebut Sumber Buku, Kurikulum Merdeka, atau 3 Langkah! Jawab nyambung tanpa mengoreksi typo!]\n${userMessageContext}`
           : intent === 'curhat'
-          ? `[INTENT 2 & 4: User sedang curhat, ngobrol santai, atau bertanya pengetahuan umum / topik bebas di luar buku sekolah. Jawab langsung secara CERDAS, PAHAM KONTEKS, dan NYAMBUNG seperti Gemini AI namun tetap dengan gaya santai MIMI V12 ("bestie, loh, tau gak, eh"). JANGAN sebut Sumber Buku Siswa dan JANGAN pakai 3 Langkah!]\nPesan User: ${cleanMessage}`
+          ? `[INTENT 2 & 4: User sedang curhat, ngobrol santai, atau bertanya pengetahuan umum / topik bebas di luar buku sekolah. Pahami singkatan/typo dan jawab langsung secara CERDAS, PAHAM KONTEKS, dan NYAMBUNG seperti Gemini AI namun tetap dengan gaya santai MIMI V12 ("bestie, loh, tau gak, eh"). JANGAN sebut Sumber Buku Siswa dan JANGAN pakai 3 Langkah!]\n${userMessageContext}`
           : intent === 'profesor'
-          ? `[INTENT 5: MODE MIMI PROFESOR V12 untuk ${jenjang} Kelas ${kelas} Mapel ${subjectInfo.name}. Jawab langsung pertanyaan spesifik user dengan memberikan HACK TRIK HAFAL, jembatan keledai (mnemonic), atau rumus cepat beserta Sumber: ${subjectInfo.bookTitle} ${subjectInfo.sampleChapter} Hal ${subjectInfo.samplePage}.]\nPesan User: ${cleanMessage}`
+          ? `[INTENT 5: MODE MIMI PROFESOR V12 untuk ${jenjang} Kelas ${kelas} Mapel ${subjectInfo.name}. Jawab langsung pertanyaan spesifik user (pahami singkatan/typo) dengan memberikan HACK TRIK HAFAL, jembatan keledai (mnemonic), atau rumus cepat beserta Sumber: ${subjectInfo.bookTitle} ${subjectInfo.sampleChapter} Hal ${subjectInfo.samplePage}.]\n${userMessageContext}`
           : intent === 'math'
-          ? `[INTENT 3: User bertanya tentang MATEMATIKA (${jenjang} Kelas ${kelas}). Pahami soal/pertanyaan spesifik user berikut dan bahas angkanya/konsepnya secara cerdas! WAJIB sebutkan Sumber: ${subjectInfo.bookTitle} ${subjectInfo.sampleChapter} Hal ${subjectInfo.samplePage}. Pecah cara pengerjaannya jadi 3 Langkah (Langkah 1, Langkah 2, Langkah 3) TANPA membocorkan hasil akhir, lalu akhiri dengan 3 Opsi Pilihan (A, B, C) cara memulai pengerjaan.]\nPertanyaan User: ${cleanMessage}`
-          : `[INTENT 3: User bertanya tentang materi/pengetahuan (${subjectInfo.name} · ${jenjang} Kelas ${kelas}). Jawab langsung substansi pertanyaan user secara cerdas dan akurat menggunakan struktur Clue + Kisi-kisi + Sumber resmi (${subjectInfo.bookTitle} ${subjectInfo.sampleChapter} Hal ${subjectInfo.samplePage} & ${subjectInfo.webSource}) + Analogi sehari-hari yang mudah diingat. Jangan gunakan format 3 Langkah.]\nPertanyaan User: ${cleanMessage}`;
+          ? `[INTENT 3: User bertanya tentang MATEMATIKA (${jenjang} Kelas ${kelas}). Pahami soal/pertanyaan spesifik user (termasuk singkatan seperti mtk, aljbr, rmus, pytagoras) dan bahas konsepnya secara cerdas & nyambung! WAJIB sebutkan Sumber: ${subjectInfo.bookTitle} ${subjectInfo.sampleChapter} Hal ${subjectInfo.samplePage}. Pecah cara pengerjaannya jadi 3 Langkah (Langkah 1, Langkah 2, Langkah 3) TANPA membocorkan hasil akhir, lalu akhiri dengan 3 Opsi Pilihan (A, B, C) cara memulai pengerjaan.]\n${userMessageContext}`
+          : `[INTENT 3: User bertanya tentang materi/pengetahuan (${subjectInfo.name} · ${jenjang} Kelas ${kelas}). Pahami pertanyaan user meskipun disingkat/typo dan jawab langsung substansi pertanyaan secara cerdas, nyambung, dan akurat menggunakan struktur Clue + Kisi-kisi + Sumber resmi (${subjectInfo.bookTitle} ${subjectInfo.sampleChapter} Hal ${subjectInfo.samplePage} & ${subjectInfo.webSource}) + Analogi sehari-hari yang mudah diingat. Jangan gunakan format 3 Langkah.]\n${userMessageContext}`;
 
       const formattedContents = [
         ...sanitizedHistory.slice(-10).map((msg) => ({

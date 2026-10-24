@@ -14,6 +14,7 @@ import {
   FileText,
   Award,
   Clock,
+  BookOpen,
 } from 'lucide-react';
 import {
   AchievementBadge,
@@ -35,6 +36,7 @@ import { MimiChatRoom } from './components/MimiChatRoom';
 import { PracticeQuizRoom } from './components/PracticeQuizRoom';
 import { VideoLessonRoom } from './components/VideoLessonRoom';
 import { PromptBlueprintView } from './components/PromptBlueprintView';
+import { ClassroomSyncModal } from './components/ClassroomSyncModal';
 
 type ActiveSection = 'chat' | 'quiz' | 'video' | 'prompt';
 
@@ -322,6 +324,7 @@ export default function App() {
   const [mode, setMode] = useState<MimiMode>('belajar');
   const [messages, setMessages] = useState<ChatMessage[]>(loadInitialMessages);
 
+  const [isClassroomModalOpen, setIsClassroomModalOpen] = useState(false);
   const [streakData, setStreakData] = useState<DailyStreakState>(
     () => loadAndSyncInitialStreak().streak
   );
@@ -768,6 +771,17 @@ export default function App() {
 
             <button
               type="button"
+              onClick={() => setIsClassroomModalOpen(true)}
+              aria-label="Google Classroom Sync"
+              className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-display font-bold text-zinc-200 hover:text-white rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/40 transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap shrink-0 active:scale-95"
+              title="Buka Google Classroom Sync"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-red-400 shrink-0" />
+              <span className="hidden sm:inline">Classroom</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
                 setMode('profesor');
                 switchSection('chat');
@@ -896,6 +910,16 @@ export default function App() {
           })}
         </div>
       </nav>
+
+      {/* Google Classroom Sync Modal */}
+      <ClassroomSyncModal
+        isOpen={isClassroomModalOpen}
+        onClose={() => setIsClassroomModalOpen(false)}
+        onAskMimiAboutHomework={(promptText) => {
+          setIsClassroomModalOpen(false);
+          handleAskMimiFromOtherTab(promptText, 'belajar');
+        }}
+      />
     </div>
   );
 }

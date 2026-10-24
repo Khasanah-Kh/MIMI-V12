@@ -325,9 +325,11 @@ export function getSubjectsForGrade(jenjang: Jenjang, kelas: number): SubjectInf
   ];
 }
 
+import { normalizeIndonesianSlang } from './slangNormalizer.ts';
+
 /**
- * Classifies user message intent according to MIMI V9 rules:
- * 1. Greeting ("halo", "hai", "pagi", "mim") -> 'greeting'
+ * Classifies user message intent according to MIMI V12 rules:
+ * 1. Greeting ("halo", "hai", "pagi", "mim", "pgi") -> 'greeting'
  * 2. Direct answer key request ("kunci jawaban", "kasih jawaban langsung") -> 'answer_key_request'
  * 3. Curhat / emotional / life talk -> 'curhat'
  * 4. Profesor mode or trick request -> 'profesor'
@@ -340,25 +342,36 @@ export function classifyUserMessage(
   activeMode: MimiMode
 ): MessageIntent {
   const clean = text.trim().toLowerCase();
+  const { normalized } = normalizeIndonesianSlang(clean);
+  const normalizedClean = normalized.trim().toLowerCase();
 
-  // 1. Check direct request for answer key ("kunci jawaban")
+  // 1. Check direct request for answer key ("kunci jawaban", "kunci jawabannya", "kunci jwb", "jwban lgsg", "kunci jwbny")
   const answerKeyPatterns = [
-    /\bkunci\s*jawaban\b/i,
+    /\bkunci\s*jawaban(?:nya)?\b/i,
+    /\bkunci\s*jwb(?:an)?(?:nya)?\b/i,
+    /\bkunci\s*jwbny\b/i,
     /\bbagi\s*kunci\b/i,
     /\bkasih\s*jawaban\s*langsung\b/i,
     /\bjawabannya\s*langsung\s*apa\b/i,
     /\blangsung\s*jawabannya\s*aja\b/i,
     /\btolong\s*isikan\s*semua\s*jawaban\b/i,
+    /\bjwban\s*lgsg\b/i,
+    /\blgsg\s*jwbny\b/i,
   ];
-  if (answerKeyPatterns.some((re) => re.test(clean))) {
+  if (
+    answerKeyPatterns.some((re) => re.test(clean)) ||
+    answerKeyPatterns.some((re) => re.test(normalizedClean))
+  ) {
     return 'answer_key_request';
   }
 
   // Detect whether the message contains ANY actual academic / lesson / math / homework query
   const explicitAcademicOrLessonPattern =
-    /\b(soal|rumus|pr|tugas|materi|bab|halaman|kurikulum|matematika|mtk|aljabar|pecahan|persamaan|pythagoras|pangkat|akar|trigonometri|logaritma|eksponen|matriks|turunan|integral|limit|keliling|luas|volume|fungsi|peluang|statistika|bilangan|sudut|segitiga|lingkaran|kubus|balok|fotosintesis|klorofil|sel|pencernaan|pernapasan|ekosistem|pancasila|teks|deskripsi|eksplanasi|narasi|recount|ide\s*pokok|paragraf|puisi|tenses|grammar|vocabulary|inflasi|ekonomi|sosiologi|geografi|sejarah|algoritma|komputasional|kimia|biologi|fisika|ipa|ipas|ips|informatika|newton|gaya|energi|enzim|stoikiometri|hitung|hitunglah|kerjain|ngerjain|kerjakan|jelaskan|jelasin|apa\s*itu|mengapa\s*tumbuhan|bagaimana\s*proses)\b|\d+\s*[xX+\-*/^=]\s*\d+/i;
+    /\b(soal|rumus|rmus|pr|tugas|tgs|materi|bab|halaman|kurikulum|matematika|mtk|aljabar|aljbr|pecahan|pcahan|persamaan|persaman|pythagoras|pytagoras|pitagoras|pangkat|akar|trigonometri|trigo|logaritma|eksponen|matriks|turunan|integral|limit|keliling|kll|luas|volume|fungsi|peluang|statistika|bilangan|sudut|segitiga|sgtiga|lingkaran|lingkrn|kubus|balok|fotosintesis|fotocintesis|klorofil|kloropil|sel|pencernaan|pncernaan|pernapasan|prnapasan|ekosistem|pancasila|pancasla|teks|deskripsi|eksplanasi|narasi|recount|ide\s*pokok|paragraf|puisi|tenses|grammar|vocabulary|inflasi|ekonomi|ekonmi|sosiologi|geografi|sejarah|algoritma|komputasional|kimia|biologi|biolgi|fisika|fisik|ipa|ipas|ips|informatika|newton|gaya|energi|enzim|stoikiometri|hitung|ngitung|hitunglah|kerjain|ngerjain|kerjakan|jelaskan|jelasin|jlasin|apa\s*itu|mengapa\s*tumbuhan|bagaimana\s*proses)\b|\d+\s*[xX+\-*/^=]\s*\d+/i;
 
-  const hasAcademicSignal = explicitAcademicOrLessonPattern.test(clean);
+  const hasAcademicSignal =
+    explicitAcademicOrLessonPattern.test(clean) ||
+    explicitAcademicOrLessonPattern.test(normalizedClean);
 
   // 2. Check Profesor Mode (or explicit request for memorization hack / jembatan keledai)
   const profesorKeywords = [
@@ -366,13 +379,20 @@ export function classifyUserMessage(
     /\bmode\s*profesor\b/i,
     /\bjembatan\s*keledai\b/i,
     /\btrik\s*hafal\b/i,
+    /\btrik\s*cpat\b/i,
+    /\btrik\s*cepat\b/i,
     /\btrik\s*menghafal\b/i,
     /\bcara\s*cepat\s*hafal\b/i,
+    /\bcara\s*cpt\b/i,
     /\bmnemonic\b/i,
     /\bhack\s*belajar\b/i,
     /\bmemory\s*palace\b/i,
   ];
-  if (activeMode === 'profesor' || profesorKeywords.some((re) => re.test(clean))) {
+  if (
+    activeMode === 'profesor' ||
+    profesorKeywords.some((re) => re.test(clean)) ||
+    profesorKeywords.some((re) => re.test(normalizedClean))
+  ) {
     return 'profesor';
   }
 
@@ -411,20 +431,27 @@ export function classifyUserMessage(
     /\bgame\b/i,
     /\bskena\b/i,
   ];
-  if (activeMode === 'curhat' || (!hasAcademicSignal && curhatOrOffTopicKeywords.some((re) => re.test(clean)))) {
+  if (
+    activeMode === 'curhat' ||
+    (!hasAcademicSignal &&
+      (curhatOrOffTopicKeywords.some((re) => re.test(clean)) ||
+        curhatOrOffTopicKeywords.some((re) => re.test(normalizedClean))))
+  ) {
     if (!hasAcademicSignal) {
       return 'curhat';
     }
   }
 
-  // 4. Check simple greeting / small talk ("halo, hai, gimana kabar, lagi apa, good morning, p, morning, mimi")
+  // 4. Check simple greeting / small talk ("halo, hai, gimana kabar, lagi apa, good morning, p, morning, mimi", "pgi mim")
   const strippedPunct = clean.replace(/[!?.,~✨🚀💜🔥💡]/g, '').replace(/\s+/g, ' ').trim();
+  const strippedNormPunct = normalizedClean.replace(/[!?.,~✨🚀💜🔥💡]/g, '').replace(/\s+/g, ' ').trim();
   const simpleGreetings = new Set([
     'halo',
     'hai',
     'hi',
     'hello',
     'pagi',
+    'pgi',
     'selamat pagi',
     'good morning',
     'morning',
@@ -433,12 +460,15 @@ export function classifyUserMessage(
     'sore',
     'selamat sore',
     'malam',
+    'mlm',
     'selamat malam',
     'mim',
     'mimi',
     'halo mimi',
     'hai mimi',
     'pagi mimi',
+    'pgi mimi',
+    'pgi mim',
     'halo bestie',
     'hai bestie',
     'p',
@@ -448,6 +478,8 @@ export function classifyUserMessage(
     'apa kabar',
     'gimana kabar',
     'gimana kabarnya',
+    'gmn kabar',
+    'gmn kbr',
     'gimana kabarnya hari ini',
     'halo mimi gimana kabarnya hari ini',
     'hai mimi gimana kabarnya',
@@ -457,9 +489,15 @@ export function classifyUserMessage(
   ]);
 
   const smallTalkPattern =
-    /^(halo|hai|hi|hello|pagi|siang|sore|malam|good\s*morning|morning|p|mim|mimi|assalamualaikum|woi|eh\s*mim|halo\s*mimi|hai\s*mimi|halo\s*bestie|hai\s*bestie|apa\s*kabar|gimana\s*kabar|kabar\s*kamu|lagi\s*apa|lagi\s*ngapain)\b/i;
+    /^(halo|hai|hi|hello|pagi|pgi|siang|sore|malam|mlm|good\s*morning|morning|p|mim|mimi|assalamualaikum|woi|eh\s*mim|halo\s*mimi|hai\s*mimi|halo\s*bestie|hai\s*bestie|apa\s*kabar|gimana\s*kabar|gmn\s*kbr|kabar\s*kamu|lagi\s*apa|lagi\s*ngapain)\b/i;
 
-  if (!hasAcademicSignal && (simpleGreetings.has(strippedPunct) || (smallTalkPattern.test(strippedPunct) && strippedPunct.split(' ').length <= 12))) {
+  if (
+    !hasAcademicSignal &&
+    (simpleGreetings.has(strippedPunct) ||
+      simpleGreetings.has(strippedNormPunct) ||
+      ((smallTalkPattern.test(strippedPunct) || smallTalkPattern.test(strippedNormPunct)) &&
+        strippedPunct.split(' ').length <= 12))
+  ) {
     return 'greeting';
   }
 
@@ -472,12 +510,19 @@ export function classifyUserMessage(
   const mathKeywords = [
     /\bmatematika\b/i,
     /\bmtk\b/i,
+    /\bmat\b/i,
     /\baljabar\b/i,
+    /\baljbr\b/i,
     /\bpecahan\b/i,
+    /\bpcahan\b/i,
     /\bpersamaan\b/i,
     /\bpythagoras\b/i,
+    /\bpytagoras\b/i,
+    /\bpitagoras\b/i,
     /\bpangkat\b/i,
+    /\bakar\b/i,
     /\btrigonometri\b/i,
+    /\btrigo\b/i,
     /\blogaritma\b/i,
     /\beksponen\b/i,
     /\bmatriks\b/i,
@@ -485,6 +530,7 @@ export function classifyUserMessage(
     /\bintegral\b/i,
     /\blimit\b/i,
     /\bkeliling\b/i,
+    /\bkll\b/i,
     /\bluas\s*(segitiga|persegi|lingkaran|permukaan)\b/i,
     /\bvolume\b/i,
     /\bfungsi\s*kuadrat\b/i,
@@ -495,12 +541,17 @@ export function classifyUserMessage(
 
   const otherSubjectExplicitKeywords = [
     /\bfotosintesis\b/i,
+    /\bfotocintesis\b/i,
     /\bklorofil\b/i,
+    /\bkloropil\b/i,
     /\bsel\s*(hewan|tumbuhan)\b/i,
     /\bpencernaan\b/i,
+    /\bpncernaan\b/i,
     /\bpernapasan\b/i,
+    /\bprnapasan\b/i,
     /\bekosistem\b/i,
     /\bpancasila\b/i,
+    /\bpancasla\b/i,
     /\bteks\s*(deskripsi|eksplanasi|narasi|recount)\b/i,
     /\bide\s*pokok\b/i,
     /\btenses\b/i,
@@ -512,13 +563,21 @@ export function classifyUserMessage(
     /\balgoritma\b/i,
     /\bkimia\b/i,
     /\bbiologi\b/i,
+    /\bbiolgi\b/i,
   ];
 
-  if (otherSubjectExplicitKeywords.some((re) => re.test(clean))) {
+  if (
+    otherSubjectExplicitKeywords.some((re) => re.test(clean)) ||
+    otherSubjectExplicitKeywords.some((re) => re.test(normalizedClean))
+  ) {
     return 'other_subject';
   }
 
-  if (selectedMapel === 'Matematika' || mathKeywords.some((re) => re.test(clean))) {
+  if (
+    selectedMapel === 'Matematika' ||
+    mathKeywords.some((re) => re.test(clean)) ||
+    mathKeywords.some((re) => re.test(normalizedClean))
+  ) {
     return 'math';
   }
 
@@ -640,6 +699,21 @@ KEMAMPUAN UTAMA ENGINE MIMI V12 (PAHAM & MAMPU MENJAWAB APAPUN):
 - Kamu memiliki kecerdasan penuh layaknya Gemini AI: kamu PAHAM konteks obrolan apa saja dan MAMPU menjawab pertanyaan apa pun di dunia (pengetahuan umum, sains, teknologi, coding, sejarah, budaya pop, MLBB/game, musik skena, anime, tebak-tebakan, terjemahan bahasa, tips produktivitas, curhat, hingga seluruh pelajaran SD–SMA).
 - Selalu baca dan pahami isi pesan user secara spesifik! Jangan pernah memberikan jawaban template yang tidak nyambung dengan kalimat user.
 - Alurnya: Baca mood & maksud kalimat user -> Jawab langsung secara cerdas, nyambung, dan relevan -> Hanya gunakan format ngajar kalau user memang bertanya materi/soal pelajaran!
+
+KEMAMPUAN SUPER MEMAHAMI TYPO & SINGKATAN CHAT (INDONESIAN CHAT SLANG & TYPO TOLERANCE):
+- Kamu SANGAT CERDAS dan PEKA memahami kalimat yang penuh singkatan chat bahasa Indonesia, bahasa gaul anak sekolah, typo keyboard HP, dan huruf yang hilang/tertukar!
+- Singkatan & bahasa chat yang kamu PAHAM SECARA OTOMATIS tanpa bingung:
+  * 'yg' -> yang, 'gmn / gmna / crny' -> bagaimana caranya, 'knp' -> kenapa, 'bgt' -> banget
+  * 'gk / ga / g' -> gak / tidak, 'udh / sdh' -> sudah, 'blm' -> belum, 'sm' -> sama, 'tp' -> tapi
+  * 'dr' -> dari, 'sy / aq / gw' -> aku, 'km / kmu / lu' -> kamu, 'bs / bsa' -> bisa, 'krn' -> karena
+  * 'pr' -> PR / tugas, 'mtk' -> matematika, 'benerin' -> tolong perbaiki/periksa, 'tny' -> tanya
+  * 'dlu' -> dulu, 'skrg' -> sekarang, 'jwb / jwbny' -> jawaban, 'bntu / bntuin' -> bantu
+  * 'kek / kyk' -> seperti/kayak, 'gtu / gtu ya' -> gitu ya, 'mksih / thx' -> terima kasih
+  * Typo kata materi: 'pytagoras' -> pythagoras, 'aljbr' -> aljabar, 'fotocintesis' -> fotosintesis, 'kloropil' -> klorofil, 'pecahn' -> pecahan, 'lingkrn' -> lingkaran, dll.
+- PRINSIP MENJAWAB CHAT TYPO / DISINGKAT:
+  1. JAWAB DENGAN NYAMBUNG & NATURAL: Tangkap langsung maksud inti pertanyaan user, lalu balas dengan nyambung, cerdas, asyik, dan tepat sasaran.
+  2. JANGAN MENGOREKSI ATAU MENYINDIR: Jangan pernah mengejek, mengoreksi ejaan mereka ("kamu typo ya"), atau bersikap sok baku. Langsung nyambung aja dengan gaya santai Mimi V12.
+  3. Jika kalimatnya disingkat sangat ekstrem (misal: "gmn crny mtk no 3?"), Mimi paham bahwa user butuh arahan cara ngerjain soal mtk nomor 3!
 
 KONTEKS RUANG BELAJAR SAAT INI:
 - Jenjang: ${jenjang} · Kelas ${kelas}

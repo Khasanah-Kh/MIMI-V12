@@ -515,8 +515,13 @@ export const MimiChatRoom: React.FC<MimiChatRoomProps> = ({
 
   const quickPrompts = [
     {
-      label: '👋 Sapaan Santai (No Ngajar)',
-      prompt: 'Halo Mimi! Gimana kabarnya hari ini?',
+      label: '👋 Sapaan Santai ("pgi mim gmn kbr")',
+      prompt: 'pgi mim gmn kbr mu hr ini',
+      targetMode: 'belajar' as MimiMode,
+    },
+    {
+      label: '📱 Typo & Singkat ("gmn crny mtk aljbr")',
+      prompt: 'mim gmn crny ngerjain mtk aljbr 3x+5=20 benerin y',
       targetMode: 'belajar' as MimiMode,
     },
     {
@@ -533,7 +538,7 @@ export const MimiChatRoom: React.FC<MimiChatRoomProps> = ({
       label: `🔬 Clue & Analogi ${currentSubject.name === 'Matematika' ? 'IPA / Sains' : currentSubject.name}`,
       prompt:
         currentSubject.name === 'Matematika'
-          ? `Mim, jelasin proses fotosintesis dan klorofil pakai clue & analogi seru dong!`
+          ? `mim jelasin proses fotosintesis sm kloropil pake analogi seru dong!`
           : `Mim, kasih clue, kisi-kisi buku, dan analogi seru buat materi ${currentSubject.name} (${currentSubject.sampleChapter}) dong!`,
       targetMode: 'belajar' as MimiMode,
     },
@@ -543,8 +548,8 @@ export const MimiChatRoom: React.FC<MimiChatRoomProps> = ({
       targetMode: 'profesor' as MimiMode,
     },
     {
-      label: '💜 Curhat Mood Capek',
-      prompt: 'Mim, aku mau curhat dong, hari ini rasanya capek banget dan agak sedih...',
+      label: '💜 Curhat ("aq bosen bgt hr ini")',
+      prompt: 'mim aq bosen bgt hr ini pgn curhat...',
       targetMode: 'curhat' as MimiMode,
     },
   ];
@@ -990,7 +995,7 @@ export const MimiChatRoom: React.FC<MimiChatRoomProps> = ({
                 ? 'Curhat mood atau ajak ngobrol MLBB / skena...'
                 : mode === 'profesor'
                 ? `Minta trik hafal ${currentSubject.name} Kelas ${kelas}...`
-                : `Tanya apa aja ke Mimi (< 3 detik dijawab!)...`
+                : `Tanya Mimi apa aja (singkatan & typo langsung paham!)...`
             }
             className="flex-1 min-w-0 px-4 sm:px-5 py-3 text-base sm:text-sm tracking-wide bg-white/[0.06] border border-purple-500/30 rounded-full focus:outline-none focus:ring-2 focus:ring-[#8B5CF6] text-white placeholder:text-slate-400"
           />
